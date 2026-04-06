@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react';
+import React, { useState, useRef, useCallback, useEffect, DragEvent, ChangeEvent } from 'react';
+import { gsap } from 'gsap';
 
 // ─── Types matching the FastAPI /analyze response ────────────────────────────
 
@@ -60,6 +61,80 @@ export default function WorkspacePage() {
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── GSAP refs ───────────────────────────────────────────────────────────────
+  const navRef = useRef<HTMLElement>(null);
+  const macWindowRef = useRef<HTMLElement>(null);
+  const leftPaneRef = useRef<HTMLElement>(null);
+  const middlePaneRef = useRef<HTMLElement>(null);
+  const rightPaneRef = useRef<HTMLElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // ── Entrance animations on mount ────────────────────────────────────────────
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+      // Nav slides down
+      tl.fromTo(
+        navRef.current,
+        { y: -64, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.7 }
+      );
+
+      // Mac window scales up from slightly below
+      tl.fromTo(
+        macWindowRef.current,
+        { y: 40, opacity: 0, scale: 0.97 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.75, ease: 'expo.out' },
+        '-=0.3'
+      );
+
+      // Left pane slides in from left
+      tl.fromTo(
+        leftPaneRef.current,
+        { x: -30, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.6 },
+        '-=0.55'
+      );
+
+      // Middle pane fades in
+      tl.fromTo(
+        middlePaneRef.current,
+        { y: 20, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6 },
+        '-=0.45'
+      );
+
+      // Right pane slides in from right
+      tl.fromTo(
+        rightPaneRef.current,
+        { x: 30, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.6 },
+        '-=0.45'
+      );
+    });
+
+    return () => ctx.revert();
+  }, []);
+
+  // ── Animate results in when they arrive ─────────────────────────────────────
+  useEffect(() => {
+    if (!result || !resultsRef.current) return;
+
+    const items = resultsRef.current.querySelectorAll('[data-animate]');
+    gsap.fromTo(
+      items,
+      { y: 18, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.5,
+        stagger: 0.08,
+        ease: 'power2.out',
+      }
+    );
+  }, [result]);
 
   // ── Drag-and-drop handlers ──────────────────────────────────────────────────
 
@@ -171,7 +246,11 @@ export default function WorkspacePage() {
   return (
     <>
       {/* ── Nav ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-zinc-900/70 backdrop-blur-3xl shadow-2xl shadow-black/50 flex justify-between items-center px-8 h-14">
+      <nav
+        ref={navRef}
+        className="fixed top-0 left-0 right-0 z-50 bg-zinc-900/70 backdrop-blur-3xl shadow-2xl shadow-black/50 flex justify-between items-center px-8 h-14"
+        style={{ opacity: 0 }}
+      >
         <div className="text-lg font-bold tracking-tighter text-zinc-100">CodeKino</div>
         <div className="hidden md:flex gap-8 items-center">
           <a className="font-inter tracking-tight text-sm font-medium text-blue-400 font-semibold hover:text-white transition-colors duration-200" href="#">Platform</a>
@@ -188,7 +267,11 @@ export default function WorkspacePage() {
       <div className="min-h-screen pt-14 pb-20 flex items-center justify-center px-4 bg-zinc-950">
 
         {/* ── macOS Window ── */}
-        <main className="w-full max-w-6xl bg-surface-container-low rounded-xl mac-shadow overflow-hidden flex flex-col" style={{ minHeight: '600px', height: 'calc(100vh - 14rem)' }}>
+        <main
+          ref={macWindowRef}
+          className="w-full max-w-6xl bg-surface-container-low rounded-xl mac-shadow overflow-hidden flex flex-col"
+          style={{ minHeight: '600px', height: 'calc(100vh - 14rem)', opacity: 0 }}
+        >
 
           {/* Title bar */}
           <div className="h-10 shrink-0 flex items-center px-4 bg-surface-container-high/30 border-b border-white/5 backdrop-blur-md">
@@ -207,16 +290,21 @@ export default function WorkspacePage() {
             {/* ──────────────────────────────────────────────────────────────────
                 LEFT PANE — Input
             ─────────────────────────────────────────────────────────────────── */}
-            <section className="flex-1 p-6 flex flex-col gap-4 bg-surface-container-lowest overflow-y-auto">
-              <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-semibold tracking-tight text-white">Input Source</h1>
-                <p className="text-sm text-zinc-500">Provide the Python script to analyse.</p>
+            <section
+              ref={leftPaneRef}
+              className="w-80 shrink-0 p-6 flex flex-col gap-3 bg-surface-container-lowest border-r border-white/5 overflow-y-auto no-scrollbar"
+              style={{ opacity: 0, minWidth: '320px' }}
+            >
+              {/* Section header */}
+              <div className="shrink-0">
+                <h1 className="text-xl font-semibold tracking-tight text-white leading-tight">Input Source</h1>
+                <p className="text-xs text-zinc-500 mt-0.5">Provide the Python script to analyse.</p>
               </div>
 
               {/* Drop zone */}
               <div
                 id="code-dropzone"
-                className={`rounded-xl border border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-300 backdrop-blur-sm min-h-32 py-6 ${
+                className={`shrink-0 rounded-xl border border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-300 backdrop-blur-sm py-4 ${
                   isDragging
                     ? 'border-blue-400 bg-blue-500/10'
                     : 'border-outline-variant/30 bg-surface-container-highest/20 hover:bg-surface-container-highest/40'
@@ -226,16 +314,16 @@ export default function WorkspacePage() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className={`w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-transform duration-300 ${isDragging ? 'scale-110' : 'group-hover:scale-110'}`}>
-                  <span className="material-symbols-outlined text-4xl">description</span>
+                <div className={`w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}>
+                  <span className="material-symbols-outlined text-3xl">description</span>
                 </div>
-                <div className="text-center">
+                <div className="text-center px-4">
                   {fileName ? (
                     <p className="text-sm font-medium text-blue-400">{fileName} loaded ✓</p>
                   ) : (
                     <>
-                      <p className="text-base font-medium text-zinc-200">Drag your .py script here.</p>
-                      <p className="text-xs text-zinc-500 mt-1">Or click to browse from system files</p>
+                      <p className="text-sm font-medium text-zinc-200">Drag your .py script here.</p>
+                      <p className="text-xs text-zinc-500 mt-1">Or click to browse files</p>
                     </>
                   )}
                 </div>
@@ -250,7 +338,7 @@ export default function WorkspacePage() {
               </div>
 
               {/* Code textarea */}
-              <div className="flex flex-col gap-2 flex-1 min-h-0">
+              <div className="flex flex-col gap-2 shrink-0">
                 <label htmlFor="code-textarea" className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">
                   Or paste code directly
                 </label>
@@ -259,14 +347,14 @@ export default function WorkspacePage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="# paste Python code here..."
-                  className="flex-1 min-h-40 w-full rounded-lg bg-zinc-900/70 border border-white/5 text-xs font-mono text-zinc-300 placeholder-zinc-700 resize-none p-4 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                  className="w-full h-36 rounded-lg bg-zinc-900/70 border border-white/5 text-xs font-mono text-zinc-300 placeholder-zinc-700 resize-none p-4 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all no-scrollbar"
                   spellCheck={false}
                 />
               </div>
 
               {/* Error */}
               {error && (
-                <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 font-mono">
+                <div className="shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 font-mono">
                   <span className="material-symbols-outlined text-sm align-middle mr-1">error</span>
                   {error}
                 </div>
@@ -277,7 +365,7 @@ export default function WorkspacePage() {
                 id="analyze-btn"
                 onClick={analyze}
                 disabled={isLoading}
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="shrink-0 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
@@ -293,7 +381,7 @@ export default function WorkspacePage() {
               </button>
 
               {/* Processing status bar */}
-              <div className="shrink-0 h-28 rounded-lg bg-surface-container-high/40 p-4 border border-white/5 overflow-hidden">
+              <div className="shrink-0 rounded-lg bg-surface-container-high/40 p-4 border border-white/5">
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">Processing Status</span>
                   <span className={`text-[10px] font-mono ${isLoading ? 'text-blue-400 animate-pulse' : result ? 'text-emerald-400' : 'text-zinc-600'}`}>
@@ -326,7 +414,11 @@ export default function WorkspacePage() {
             {/* ──────────────────────────────────────────────────────────────────
                 MIDDLE PANE — Results / Video coming soon
             ─────────────────────────────────────────────────────────────────── */}
-            <section className="flex-[1.5] bg-surface border-x border-white/5 p-6 flex flex-col gap-4 relative overflow-hidden overflow-y-auto">
+            <section
+              ref={middlePaneRef}
+              className="flex-1 bg-surface border-r border-white/5 p-6 flex flex-col gap-4 relative overflow-y-auto"
+              style={{ opacity: 0 }}
+            >
               <div className="flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${result ? 'bg-emerald-400' : 'bg-secondary'}`} />
@@ -356,10 +448,10 @@ export default function WorkspacePage() {
 
               {/* ── Real results ── */}
               {result && (
-                <div className="flex flex-col gap-4 flex-1">
+                <div ref={resultsRef} className="flex flex-col gap-4 flex-1">
 
                   {/* Complexity badges */}
-                  <div className="grid grid-cols-2 gap-3 shrink-0">
+                  <div data-animate className="grid grid-cols-2 gap-3 shrink-0">
                     <div className="bg-surface-container-high/50 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
                       <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 block mb-1">Time Complexity</span>
                       <span className="text-xl font-mono font-bold text-white">{result.time_complexity ?? 'N/A'}</span>
@@ -372,7 +464,7 @@ export default function WorkspacePage() {
 
                   {/* Functions found */}
                   {result.functions.length > 0 && (
-                    <div className="shrink-0 rounded-xl bg-zinc-900/60 border border-white/5 p-4">
+                    <div data-animate className="shrink-0 rounded-xl bg-zinc-900/60 border border-white/5 p-4">
                       <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 block mb-3">Functions Detected</span>
                       <div className="flex flex-wrap gap-2">
                         {result.functions.map((fn) => (
@@ -389,7 +481,7 @@ export default function WorkspacePage() {
                   )}
 
                   {/* Video placeholder ribbon */}
-                  <div className="shrink-0 rounded-xl bg-zinc-800/40 border border-dashed border-white/10 p-4 flex items-center gap-4">
+                  <div data-animate className="shrink-0 rounded-xl bg-zinc-800/40 border border-dashed border-white/10 p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
                       <span className="material-symbols-outlined text-2xl">movie</span>
                     </div>
@@ -404,7 +496,7 @@ export default function WorkspacePage() {
 
                   {/* Logic Timeline */}
                   {result.logic_timeline.length > 0 && (
-                    <div className="flex-1 flex flex-col min-h-0">
+                    <div data-animate className="flex-1 flex flex-col min-h-0">
                       <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-3 shrink-0">
                         Logic Timeline — {result.timeline_steps} steps
                       </span>
@@ -459,7 +551,11 @@ export default function WorkspacePage() {
             {/* ──────────────────────────────────────────────────────────────────
                 RIGHT SIDEBAR — Complexity + Transcript
             ─────────────────────────────────────────────────────────────────── */}
-            <aside className="w-72 shrink-0 bg-zinc-900/50 backdrop-blur-2xl border-l border-white/5 flex flex-col overflow-hidden">
+            <aside
+              ref={rightPaneRef}
+              className="w-72 shrink-0 bg-zinc-900/50 backdrop-blur-2xl border-l border-white/5 flex flex-col overflow-hidden"
+              style={{ opacity: 0 }}
+            >
               <div className="p-6 border-b border-white/5 shrink-0">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary p-[1px] shrink-0">
