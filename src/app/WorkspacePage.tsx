@@ -190,11 +190,12 @@ export default function WorkspacePage() {
     if (!result) return;
     setIsGeneratingVideo(true);
     try {
-      const narration = result.narration_script.join(' ');
+      // Keep narration concise to avoid breaking URL parameters
+      const narration = result.narration_script.join(' ').substring(0, 150);
       const res = await fetch('http://localhost:8000/generate-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: "A cinematic background visual representing: " + narration }),
+        body: JSON.stringify({ prompt: narration }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
