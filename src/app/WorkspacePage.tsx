@@ -416,7 +416,7 @@ export default function WorkspacePage() {
             ─────────────────────────────────────────────────────────────────── */}
             <section
               ref={middlePaneRef}
-              className="flex-1 bg-surface border-r border-white/5 p-6 flex flex-col gap-4 relative overflow-y-auto"
+              className="flex-1 bg-surface border-r border-white/5 p-6 flex flex-col gap-4 relative overflow-y-auto no-scrollbar"
               style={{ opacity: 0 }}
             >
               <div className="flex justify-between items-center shrink-0">
