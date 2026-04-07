@@ -83,12 +83,20 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
           {/* Video placeholder ribbon / Generation Action */}
           <div data-animate className="shrink-0 rounded-xl bg-zinc-800/40 border border-white/10 p-4 flex flex-col gap-4">
             {videoUri ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 mb-1">
                   <span className="material-symbols-outlined text-emerald-400">check_circle</span>
-                  <p className="text-sm font-semibold text-zinc-200">Video Background Generated</p>
+                  <p className="text-sm font-semibold text-zinc-200">Cinematic Background Generated</p>
                 </div>
-                <video src={videoUri} controls className="w-full rounded-xl" />
+                <div className="w-full rounded-xl overflow-hidden aspect-video relative border border-white/10 shadow-2xl">
+                  {/* We apply a slow zoom effect to make the image feel like a static video/b-roll */}
+                  <img 
+                    src={videoUri} 
+                    alt="Generated Code Visualization"
+                    className="w-full h-full object-cover animate-[pulse_10s_ease-in-out_infinite] scale-105 transition-transform duration-[20s] hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent pointer-events-none" />
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-4">
@@ -96,17 +104,17 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
                   {isGeneratingVideo ? (
                     <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <span className="material-symbols-outlined text-2xl">movie</span>
+                    <span className="material-symbols-outlined text-2xl">image</span>
                   )}
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-zinc-300">
-                    {isGeneratingVideo ? 'Generating cinematic background...' : 'Veo Background Available'}
+                    {isGeneratingVideo ? 'Generating cinematic background...' : 'Free Visual Background Available'}
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">
                     {isGeneratingVideo 
-                      ? "This takes a few minutes using Google's Veo..."
-                      : "Create an AI-generated background for your code animation."}
+                      ? "Creating an AI generated scene for your code..."
+                      : "Create a free AI-generated cinematic image background."}
                   </p>
                 </div>
                 {!isGeneratingVideo && (
