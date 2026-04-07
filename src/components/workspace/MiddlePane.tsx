@@ -6,10 +6,13 @@ interface MiddlePaneProps {
   resultsRef: RefObject<HTMLDivElement | null>;
   activeStep: number | null;
   setActiveStep: (step: number | null) => void;
+  isGeneratingVideo: boolean;
+  videoUri: string | null;
+  onGenerateVideo: () => void;
 }
 
 export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) => {
-  const { result, resultsRef, activeStep, setActiveStep } = props;
+  const { result, resultsRef, activeStep, setActiveStep, isGeneratingVideo, videoUri, onGenerateVideo } = props;
 
   return (
     <section
@@ -33,13 +36,13 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
             <span className="material-symbols-outlined text-5xl">movie</span>
           </div>
           <div className="text-center space-y-1 px-6">
-            <p className="text-base font-semibold text-zinc-200">Video Generation Coming Soon</p>
+            <p className="text-base font-semibold text-zinc-200">Veo Video Generation Ready</p>
             <p className="text-xs text-zinc-500 leading-relaxed max-w-xs">
-              The animated video export is under development. Run an analysis above to explore the code insights right now.
+              Upload a Python file and run analysis to unlock Veo-powered cinematic backgrounds based on your code logic.
             </p>
           </div>
           <div className="px-4 py-2 rounded-full border border-blue-500/30 bg-blue-500/5 text-[10px] uppercase tracking-widest font-bold text-blue-400">
-            In Development
+            Veo Enabled
           </div>
         </div>
       )}
@@ -77,18 +80,45 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
             </div>
           )}
 
-          {/* Video placeholder ribbon */}
-          <div data-animate className="shrink-0 rounded-xl bg-zinc-800/40 border border-dashed border-white/10 p-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
-              <span className="material-symbols-outlined text-2xl">movie</span>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-300">Video generation coming soon</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">
-                The animated video export is being built. Analysis results are live above.
-              </p>
-            </div>
-            <span className="ml-auto px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] uppercase tracking-widest font-bold text-amber-400 shrink-0">Soon</span>
+          {/* Video placeholder ribbon / Generation Action */}
+          <div data-animate className="shrink-0 rounded-xl bg-zinc-800/40 border border-white/10 p-4 flex flex-col gap-4">
+            {videoUri ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+                  <p className="text-sm font-semibold text-zinc-200">Video Background Generated</p>
+                </div>
+                <video src={videoUri} controls className="w-full rounded-xl" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
+                  {isGeneratingVideo ? (
+                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span className="material-symbols-outlined text-2xl">movie</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-zinc-300">
+                    {isGeneratingVideo ? 'Generating cinematic background...' : 'Veo Background Available'}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    {isGeneratingVideo 
+                      ? "This takes a few minutes using Google's Veo..."
+                      : "Create an AI-generated background for your code animation."}
+                  </p>
+                </div>
+                {!isGeneratingVideo && (
+                  <button 
+                    onClick={onGenerateVideo}
+                    className="ml-auto px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] uppercase font-bold transition-colors shrink-0"
+                  >
+                    Generate
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Logic Timeline */}

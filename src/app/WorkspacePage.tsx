@@ -18,6 +18,8 @@ export default function WorkspacePage() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState<number | null>(null);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── GSAP refs ───────────────────────────────────────────────────────────────
@@ -177,9 +179,37 @@ export default function WorkspacePage() {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       setIsLoading(false);
+      setIsLoading(false);
       setProgress(0);
     }
   }, [code]);
+
+  // ── Video Generation ────────────────────────────────────────────────────────
+  
+  const generateVideo = useCallback(async () => {
+    if (!result) return;
+    setIsGeneratingVideo(true);
+    try {
+      const narration = result.narration_script.join(' ');
+      const res = await fetch('http://localhost:8000/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: "A cinematic background visual representing: " + narration }),
+      });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setVideoUri(data.video_uri);
+      } else {
+        throw new Error(data.message || "Failed to generate video");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Veo Error: " + err.message);
+    } finally {
+      setIsGeneratingVideo(false);
+    }
+  }, [result]);
 
   // ── Status label ─────────────────────────────────────────────────────────────
 
@@ -242,6 +272,9 @@ export default function WorkspacePage() {
               resultsRef={resultsRef}
               activeStep={activeStep}
               setActiveStep={setActiveStep}
+              isGeneratingVideo={isGeneratingVideo}
+              videoUri={videoUri}
+              onGenerateVideo={generateVideo}
             />
 
             <RightPane
