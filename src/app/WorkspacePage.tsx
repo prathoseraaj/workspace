@@ -142,6 +142,7 @@ export default function WorkspacePage() {
     setError(null);
     setResult(null);
     setActiveStep(null);
+    setVideoUri(null);
     setIsLoading(true);
     setProgress(10);
 

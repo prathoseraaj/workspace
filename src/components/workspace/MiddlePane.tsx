@@ -1,6 +1,7 @@
 import React, { forwardRef, RefObject } from 'react';
 import { AnalyzeResponse } from '../../types/workspace';
-
+import { Player } from '@remotion/player';
+import { CodeAnimation } from '../video/CodeAnimation';
 interface MiddlePaneProps {
   result: AnalyzeResponse | null;
   resultsRef: RefObject<HTMLDivElement | null>;
@@ -89,15 +90,35 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
                   <p className="text-sm font-semibold text-zinc-200">Cinematic Background Video Applied</p>
                 </div>
                 <div className="w-full rounded-xl overflow-hidden aspect-video relative border border-white/10 shadow-2xl">
-                  {/* Native Video Player */}
-                  <video 
-                    src={videoUri} 
-                    autoPlay 
-                    loop 
-                    muted 
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
+                  {videoUri === 'remotion-video-ready' ? (
+                    <Player
+                      component={CodeAnimation}
+                      inputProps={{ data: result }}
+                      durationInFrames={result && result.logic_timeline.length > 0 ? result.logic_timeline.length * 90 : 300}
+                      fps={30}
+                      compositionWidth={1920}
+                      compositionHeight={1080}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      controls
+                      autoPlay
+                      loop
+                    />
+                  ) : videoUri.endsWith('.mp4') ? (
+                    <video 
+                      src={videoUri} 
+                      autoPlay 
+                      loop 
+                      muted 
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img 
+                      src={videoUri} 
+                      alt="AI Generated Background"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent pointer-events-none" />
                 </div>
               </div>
