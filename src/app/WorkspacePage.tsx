@@ -20,6 +20,7 @@ export default function WorkspacePage() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [autoFixed, setAutoFixed] = useState(false); // shown as toast when LLM fixed indentation
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── GSAP refs ───────────────────────────────────────────────────────────────
@@ -169,6 +170,13 @@ export default function WorkspacePage() {
 
       if (data.error) throw new Error(data.error);
 
+      // If the backend auto-corrected indentation, update the textarea
+      if (data.fixed_code) {
+        setCode(data.fixed_code);
+        setAutoFixed(true);
+        setTimeout(() => setAutoFixed(false), 6000); // hide toast after 6s
+      }
+
       setProgress(100);
       setTimeout(() => {
         setResult(data);
@@ -231,6 +239,27 @@ export default function WorkspacePage() {
     <>
       <WorkspaceNav ref={navRef} />
 
+      {/* ── Auto-fix toast ──────────────────────────────────────────────── */}
+      {autoFixed && (
+        <div
+          role="alert"
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-5 py-3 rounded-xl bg-emerald-950 border border-emerald-500/40 shadow-2xl shadow-emerald-900/40 animate-fade-in"
+        >
+          <span className="material-symbols-outlined text-emerald-400 text-lg">auto_fix_high</span>
+          <div>
+            <p className="text-xs font-bold text-emerald-300">Indentation auto-corrected ✓</p>
+            <p className="text-[10px] text-emerald-500/80">The LLM restored proper Python indentation. Your code has been updated.</p>
+          </div>
+          <button
+            onClick={() => setAutoFixed(false)}
+            className="ml-2 text-emerald-600 hover:text-emerald-300 transition-colors"
+            aria-label="Dismiss"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      )}
+
       <div className="min-h-screen pt-14 pb-20 flex items-center justify-center px-4 bg-zinc-950">
         <main
           ref={macWindowRef}
@@ -277,6 +306,7 @@ export default function WorkspacePage() {
               isGeneratingVideo={isGeneratingVideo}
               videoUri={videoUri}
               onGenerateVideo={generateVideo}
+              onCodeFixed={setCode}
             />
 
             <RightPane
@@ -286,6 +316,15 @@ export default function WorkspacePage() {
           </div>
         </main>
       </div>
+
+      {/* Hidden code bridge — lets MiddlePane read current code without extra prop drilling */}
+      <textarea
+        id="__codekino_code__"
+        readOnly
+        value={code}
+        aria-hidden="true"
+        className="sr-only"
+      />
 
       <WorkspaceFooter />
     </>
