@@ -1,4 +1,4 @@
-import React, { DragEvent, ChangeEvent, RefObject, forwardRef } from 'react';
+import React, { DragEvent, ChangeEvent, RefObject, forwardRef, useMemo } from 'react';
 import { AnalyzeResponse } from '../../types/workspace';
 
 interface LeftPaneProps {
@@ -90,10 +90,7 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
 
       {/* Error */}
       {error && (
-        <div className="shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-400 font-mono">
-          <span className="material-symbols-outlined text-sm align-middle mr-1">error</span>
-          {error}
-        </div>
+        <SyntaxErrorPanel error={error} code={code} />
       )}
 
       {/* Analyse button */}
@@ -149,3 +146,72 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
   );
 });
 LeftPane.displayName = 'LeftPane';
+
+// ── Smart error panel ─────────────────────────────────────────────────────────
+
+interface SyntaxErrorPanelProps {
+  error: string;
+  code: string;
+}
+
+/**
+ * Renders a user-friendly error panel.
+ * If the error looks like a Python syntax error (contains "line N"),
+ * it extracts the line number and quotes the offending line from the user's code.
+ */
+function SyntaxErrorPanel({ error, code }: SyntaxErrorPanelProps) {
+  // Try to extract "line N" from messages like:
+  //   "Syntax error in your code: invalid syntax (<unknown>, line 10)"
+  const lineMatch = error.match(/\bline\s+(\d+)/i);
+  const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : null;
+
+  const badLine = useMemo(() => {
+    if (!lineNumber) return null;
+    const lines = code.split('\n');
+    return lines[lineNumber - 1] ?? null; // convert 1-based → 0-based index
+  }, [lineNumber, code]);
+
+  const isSyntaxError = /syntax error/i.test(error);
+
+  return (
+    <div className="shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs space-y-2">
+      {/* Header row */}
+      <div className="flex items-center gap-1.5 text-red-400 font-semibold">
+        <span className="material-symbols-outlined text-sm align-middle">error</span>
+        {isSyntaxError ? 'Python Syntax Error' : 'Backend Error'}
+      </div>
+
+      {/* Main message */}
+      <p className="text-red-300/90 font-mono leading-relaxed">{error}</p>
+
+      {/* Offending line callout */}
+      {lineNumber !== null && (
+        <div className="rounded-md bg-zinc-900/70 border border-red-500/10 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border-b border-red-500/10">
+            <span className="material-symbols-outlined text-xs text-red-400">code</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">
+              Line {lineNumber} in your code
+            </span>
+          </div>
+          {badLine !== null ? (
+            <pre className="px-3 py-2 text-[11px] font-mono text-zinc-300 whitespace-pre-wrap break-all">
+              <span className="text-zinc-600 select-none mr-2">{lineNumber} │</span>
+              <span className="text-red-300">{badLine}</span>
+            </pre>
+          ) : (
+            <p className="px-3 py-2 text-[10px] text-zinc-500 italic">
+              (Could not retrieve the line — check your pasted code.)
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Fix hint */}
+      <p className="text-zinc-500 text-[10px] leading-relaxed">
+        {isSyntaxError
+          ? `Fix the syntax on line ${lineNumber ?? '?'} of your Python code and click "Analyse Code" again.`
+          : 'Check the backend server is running on port 8000 and try again.'}
+      </p>
+    </div>
+  );
+}
