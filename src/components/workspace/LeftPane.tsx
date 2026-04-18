@@ -1,9 +1,28 @@
 import React, { DragEvent, ChangeEvent, RefObject, forwardRef, useMemo } from 'react';
-import { AnalyzeResponse } from '../../types/workspace';
+import { AnalyzeResponse, SupportedLanguage } from '../../types/workspace';
+
+// Language icon map (Material Symbols fallback)
+const LANG_ICONS: Record<string, string> = {
+  python:     '🐍',
+  javascript: '🟨',
+  typescript: '🔷',
+  java:       '☕',
+  c:          '⚙️',
+  cpp:        '⚙️',
+  go:         '🐹',
+  rust:       '🦀',
+  kotlin:     '🔶',
+  swift:      '🍎',
+  ruby:       '💎',
+};
 
 interface LeftPaneProps {
   code: string;
   setCode: (code: string) => void;
+  language: string;
+  setLanguage: (lang: string) => void;
+  languages: SupportedLanguage[];
+  placeholder: string;
   fileName: string | null;
   isDragging: boolean;
   isLoading: boolean;
@@ -21,9 +40,13 @@ interface LeftPaneProps {
 
 export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
   const {
-    code, setCode, fileName, isDragging, isLoading, progress, result, error, statusLabel,
+    code, setCode, language, setLanguage, languages, placeholder,
+    fileName, isDragging, isLoading, progress, result, error, statusLabel,
     fileInputRef, handleDragOver, handleDragLeave, handleDrop, handleFileChange, analyze
   } = props;
+
+  const currentLang = languages.find((l) => l.key === language);
+  const acceptedExts = languages.map((l) => l.ext).join(',');
 
   return (
     <section
@@ -34,10 +57,49 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
       {/* Section header */}
       <div className="shrink-0">
         <h1 className="text-xl font-semibold tracking-tight text-white leading-tight">Input Source</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Provide the Python script to analyse.</p>
+        <p className="text-xs text-zinc-500 mt-0.5">Provide code to analyse — any language.</p>
       </div>
 
-      {/* Drop zone */}
+      {/* ── Language selector ──────────────────────────────────────────────── */}
+      <div className="shrink-0 flex flex-col gap-1.5">
+        <label htmlFor="language-select" className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">
+          Language
+        </label>
+        <div className="relative">
+          <select
+            id="language-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="w-full appearance-none rounded-lg bg-zinc-900/80 border border-white/10 text-sm font-semibold text-zinc-200 px-3 py-2 pr-8 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all cursor-pointer"
+          >
+            {languages.map((lang) => (
+              <option key={lang.key} value={lang.key}>
+                {LANG_ICONS[lang.key] ?? '📄'} {lang.label}
+              </option>
+            ))}
+          </select>
+          {/* Chevron icon */}
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-sm material-symbols-outlined">
+            expand_more
+          </span>
+        </div>
+        {/* Language badge */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-zinc-600 font-mono">{currentLang?.ext ?? ''}</span>
+          {language === 'python' && (
+            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+              Real Tracer ✓
+            </span>
+          )}
+          {language !== 'python' && (
+            <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
+              LLM Simulated
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Drop zone ──────────────────────────────────────────────────────── */}
       <div
         id="code-dropzone"
         className={`shrink-0 rounded-xl border border-dashed flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-300 backdrop-blur-sm py-4 ${
@@ -50,16 +112,18 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <div className={`w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}>
-          <span className="material-symbols-outlined text-3xl">description</span>
+        <div className={`w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}>
+          <span className="text-2xl">{LANG_ICONS[language] ?? '📄'}</span>
         </div>
         <div className="text-center px-4">
           {fileName ? (
             <p className="text-sm font-medium text-blue-400">{fileName} loaded ✓</p>
           ) : (
             <>
-              <p className="text-sm font-medium text-zinc-200">Drag your .py script here.</p>
-              <p className="text-xs text-zinc-500 mt-1">Or click to browse files</p>
+              <p className="text-sm font-medium text-zinc-200">Drag your file here.</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Supports: {languages.map((l) => l.ext).join(' ')}
+              </p>
             </>
           )}
         </div>
@@ -67,13 +131,13 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
           ref={fileInputRef}
           id="file-input"
           type="file"
-          accept=".py"
+          accept={acceptedExts}
           className="hidden"
           onChange={handleFileChange}
         />
       </div>
 
-      {/* Code textarea */}
+      {/* ── Code textarea ──────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-2 shrink-0">
         <label htmlFor="code-textarea" className="text-[10px] uppercase tracking-widest font-bold text-zinc-500">
           Or paste code directly
@@ -82,16 +146,14 @@ export const LeftPane = forwardRef<HTMLElement, LeftPaneProps>((props, ref) => {
           id="code-textarea"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="# paste Python code here..."
+          placeholder={placeholder}
           className="w-full h-36 rounded-lg bg-zinc-900/70 border border-white/5 text-xs font-mono text-zinc-300 placeholder-zinc-700 resize-none p-4 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all no-scrollbar"
           spellCheck={false}
         />
       </div>
 
       {/* Error */}
-      {error && (
-        <SyntaxErrorPanel error={error} code={code} />
-      )}
+      {error && <SyntaxErrorPanel error={error} code={code} language={language} />}
 
       {/* Analyse button */}
       <button
@@ -152,39 +214,31 @@ LeftPane.displayName = 'LeftPane';
 interface SyntaxErrorPanelProps {
   error: string;
   code: string;
+  language: string;
 }
 
-/**
- * Renders a user-friendly error panel.
- * If the error looks like a Python syntax error (contains "line N"),
- * it extracts the line number and quotes the offending line from the user's code.
- */
-function SyntaxErrorPanel({ error, code }: SyntaxErrorPanelProps) {
-  // Try to extract "line N" from messages like:
-  //   "Syntax error in your code: invalid syntax (<unknown>, line 10)"
+function SyntaxErrorPanel({ error, code, language }: SyntaxErrorPanelProps) {
   const lineMatch = error.match(/\bline\s+(\d+)/i);
   const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : null;
 
   const badLine = useMemo(() => {
     if (!lineNumber) return null;
     const lines = code.split('\n');
-    return lines[lineNumber - 1] ?? null; // convert 1-based → 0-based index
+    return lines[lineNumber - 1] ?? null;
   }, [lineNumber, code]);
 
   const isSyntaxError = /syntax error/i.test(error);
+  const langLabel = language.charAt(0).toUpperCase() + language.slice(1);
 
   return (
     <div className="shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-xs space-y-2">
-      {/* Header row */}
       <div className="flex items-center gap-1.5 text-red-400 font-semibold">
         <span className="material-symbols-outlined text-sm align-middle">error</span>
-        {isSyntaxError ? 'Python Syntax Error' : 'Backend Error'}
+        {isSyntaxError ? `${langLabel} Syntax Error` : 'Backend Error'}
       </div>
 
-      {/* Main message */}
       <p className="text-red-300/90 font-mono leading-relaxed">{error}</p>
 
-      {/* Offending line callout */}
       {lineNumber !== null && (
         <div className="rounded-md bg-zinc-900/70 border border-red-500/10 overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border-b border-red-500/10">
@@ -199,17 +253,14 @@ function SyntaxErrorPanel({ error, code }: SyntaxErrorPanelProps) {
               <span className="text-red-300">{badLine}</span>
             </pre>
           ) : (
-            <p className="px-3 py-2 text-[10px] text-zinc-500 italic">
-              (Could not retrieve the line — check your pasted code.)
-            </p>
+            <p className="px-3 py-2 text-[10px] text-zinc-500 italic">(Could not retrieve the line — check your pasted code.)</p>
           )}
         </div>
       )}
 
-      {/* Fix hint */}
       <p className="text-zinc-500 text-[10px] leading-relaxed">
         {isSyntaxError
-          ? `Fix the syntax on line ${lineNumber ?? '?'} of your Python code and click "Analyse Code" again.`
+          ? `Fix the syntax on line ${lineNumber ?? '?'} and click "Analyse Code" again.`
           : 'Check the backend server is running on port 8000 and try again.'}
       </p>
     </div>

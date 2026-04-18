@@ -18,6 +18,7 @@ export interface StepLog {
 }
 
 export interface AnalyzeResponse {
+  language: string;
   functions: FunctionInfo[];
   loops: number;
   time_complexity: string | null;
@@ -28,6 +29,14 @@ export interface AnalyzeResponse {
   error?: string;
   /** Present when the backend auto-corrected the code's indentation. */
   fixed_code?: string;
+}
+
+// ── Language support types ────────────────────────────────────────────────────
+
+export interface SupportedLanguage {
+  key: string;
+  label: string;
+  ext: string;
 }
 
 // ── Step Tracer types ─────────────────────────────────────────────────────────

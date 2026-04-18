@@ -16,12 +16,14 @@ interface MiddlePaneProps {
   onGenerateVideo: () => void;
   /** Called with the LLM-corrected source when /trace auto-fixes indentation */
   onCodeFixed?: (fixedCode: string) => void;
+  /** Current selected language, forwarded to /trace API */
+  language?: string;
 }
 
 type Tab = 'analysis' | 'tracer';
 
 export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) => {
-  const { result, resultsRef, activeStep, setActiveStep, isGeneratingVideo, videoUri, onGenerateVideo, onCodeFixed } = props;
+  const { result, resultsRef, activeStep, setActiveStep, isGeneratingVideo, videoUri, onGenerateVideo, onCodeFixed, language = 'python' } = props;
 
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
   const [trace, setTrace] = useState<TraceResult | null>(null);
@@ -47,7 +49,7 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
       const res = await fetch('http://localhost:8000/trace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, language }),
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data: TraceResult = await res.json();
@@ -180,7 +182,10 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-zinc-200">Live Step Tracer — New!</p>
                     <p className="text-[10px] text-zinc-500 mt-0.5">
-                      Watch variables flow through your code, cinematic & animated.
+                      {language === 'python'
+                        ? 'Real Python execution — actual variable values, zero hallucination.'
+                        : `Simulated ${language} trace — LLM walks through execution step by step.`
+                      }
                     </p>
                     {traceError && <p className="text-[10px] text-red-400 mt-1">{traceError}</p>}
                   </div>
@@ -313,8 +318,8 @@ export const MiddlePane = forwardRef<HTMLElement, MiddlePaneProps>((props, ref) 
             {isTracing && (
               <div className="flex-1 flex flex-col items-center justify-center gap-4">
                 <div className="w-12 h-12 rounded-full border-2 border-purple-500/40 border-t-purple-400 animate-spin" />
-                <p className="text-sm font-semibold text-zinc-300">Generating execution trace…</p>
-                <p className="text-xs text-zinc-500">Gemini is tracing your code step-by-step</p>
+                <p className="text-sm font-semibold text-zinc-300">Tracing execution…</p>
+                <p className="text-xs text-zinc-500">Python tracer capturing real values · LLM adding descriptions</p>
               </div>
             )}
             {!isTracing && traceError && (

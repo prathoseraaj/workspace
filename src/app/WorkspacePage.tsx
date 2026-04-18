@@ -2,15 +2,58 @@
 
 import React, { useState, useRef, useCallback, useEffect, DragEvent, ChangeEvent } from 'react';
 import { gsap } from 'gsap';
-import { AnalyzeResponse } from '../types/workspace';
+import { AnalyzeResponse, SupportedLanguage } from '../types/workspace';
 import { WorkspaceNav } from '../components/workspace/WorkspaceNav';
 import { WorkspaceFooter } from '../components/workspace/WorkspaceFooter';
 import { LeftPane } from '../components/workspace/LeftPane';
 import { MiddlePane } from '../components/workspace/MiddlePane';
 import { RightPane } from '../components/workspace/RightPane';
 
+// ── Static language list (mirrors backend SUPPORTED_LANGUAGES) ─────────────────
+const LANGUAGES: SupportedLanguage[] = [
+  { key: 'python',     label: 'Python',     ext: '.py'   },
+  { key: 'javascript', label: 'JavaScript', ext: '.js'   },
+  { key: 'typescript', label: 'TypeScript', ext: '.ts'   },
+  { key: 'java',       label: 'Java',       ext: '.java' },
+  { key: 'c',          label: 'C',          ext: '.c'    },
+  { key: 'cpp',        label: 'C++',        ext: '.cpp'  },
+  { key: 'go',         label: 'Go',         ext: '.go'   },
+  { key: 'rust',       label: 'Rust',       ext: '.rs'   },
+  { key: 'kotlin',     label: 'Kotlin',     ext: '.kt'   },
+  { key: 'swift',      label: 'Swift',      ext: '.swift'},
+  { key: 'ruby',       label: 'Ruby',       ext: '.rb'   },
+];
+
+/** Map file extension → language key */
+function detectLangFromFile(fileName: string): string | null {
+  const lower = fileName.toLowerCase();
+  for (const lang of LANGUAGES) {
+    if (lower.endsWith(lang.ext)) return lang.key;
+  }
+  return null;
+}
+
+/** Map language key → placeholder text */
+function getPlaceholder(lang: string): string {
+  const map: Record<string, string> = {
+    python:     '# paste Python code here...',
+    javascript: '// paste JavaScript code here...',
+    typescript: '// paste TypeScript code here...',
+    java:       '// paste Java code here...',
+    c:          '// paste C code here...',
+    cpp:        '// paste C++ code here...',
+    go:         '// paste Go code here...',
+    rust:       '// paste Rust code here...',
+    kotlin:     '// paste Kotlin code here...',
+    swift:      '// paste Swift code here...',
+    ruby:       '# paste Ruby code here...',
+  };
+  return map[lang] ?? '// paste your code here...';
+}
+
 export default function WorkspacePage() {
   const [code, setCode] = useState('');
+  const [language, setLanguage] = useState('python');
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +63,7 @@ export default function WorkspacePage() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [autoFixed, setAutoFixed] = useState(false); // shown as toast when LLM fixed indentation
+  const [autoFixed, setAutoFixed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── GSAP refs ───────────────────────────────────────────────────────────────
@@ -36,100 +79,50 @@ export default function WorkspacePage() {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-      tl.fromTo(
-        navRef.current,
-        { y: -64, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.7 }
-      );
-
+      tl.fromTo(navRef.current, { y: -64, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7 });
       tl.fromTo(
         macWindowRef.current,
         { y: 40, opacity: 0, scale: 0.97 },
         { y: 0, opacity: 1, scale: 1, duration: 0.75, ease: 'expo.out' },
-        '-=0.3'
+        '-=0.3',
       );
-
-      tl.fromTo(
-        leftPaneRef.current,
-        { x: -30, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.6 },
-        '-=0.55'
-      );
-
-      tl.fromTo(
-        middlePaneRef.current,
-        { y: 20, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6 },
-        '-=0.45'
-      );
-
-      tl.fromTo(
-        rightPaneRef.current,
-        { x: 30, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.6 },
-        '-=0.45'
-      );
+      tl.fromTo(leftPaneRef.current,   { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6 }, '-=0.55');
+      tl.fromTo(middlePaneRef.current, { y: 20,  opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, '-=0.45');
+      tl.fromTo(rightPaneRef.current,  { x: 30,  opacity: 0 }, { x: 0, opacity: 1, duration: 0.6 }, '-=0.45');
     });
-
     return () => ctx.revert();
   }, []);
 
   // ── Animate results in when they arrive ─────────────────────────────────────
   useEffect(() => {
     if (!result || !resultsRef.current) return;
-
     const items = resultsRef.current.querySelectorAll('[data-animate]');
-    gsap.fromTo(
-      items,
-      { y: 18, opacity: 0 },
-      {
-        y: 0,
-        opacity: 1,
-        duration: 0.5,
-        stagger: 0.08,
-        ease: 'power2.out',
-      }
-    );
+    gsap.fromTo(items, { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.08, ease: 'power2.out' });
   }, [result]);
 
   // ── Drag-and-drop handlers ──────────────────────────────────────────────────
 
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(true); }, []);
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(false); }, []);
 
   const readFile = useCallback((file: File) => {
-    if (!file.name.endsWith('.py')) {
-      setError('Please upload a .py Python file.');
-      return;
-    }
     setFileName(file.name);
+    // Auto-detect language from file extension
+    const detectedLang = detectLangFromFile(file.name);
+    if (detectedLang) setLanguage(detectedLang);
     const reader = new FileReader();
     reader.onload = (ev) => setCode((ev.target?.result as string) ?? '');
     reader.readAsText(file);
+    setError(null);
   }, []);
 
   const handleDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) readFile(file);
-    },
+    (e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) readFile(file); },
     [readFile],
   );
 
   const handleFileChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) readFile(file);
-    },
+    (e: ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) readFile(file); },
     [readFile],
   );
 
@@ -137,7 +130,7 @@ export default function WorkspacePage() {
 
   const analyze = useCallback(async () => {
     if (!code.trim()) {
-      setError('Please provide Python code before analyzing.');
+      setError('Please provide some code before analyzing.');
       return;
     }
     setError(null);
@@ -155,7 +148,7 @@ export default function WorkspacePage() {
       const res = await fetch('http://localhost:8000/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, language, file_name: fileName }),
       });
 
       clearInterval(ticker);
@@ -167,14 +160,12 @@ export default function WorkspacePage() {
       }
 
       const data: AnalyzeResponse = await res.json();
-
       if (data.error) throw new Error(data.error);
 
-      // If the backend auto-corrected indentation, update the textarea
       if (data.fixed_code) {
         setCode(data.fixed_code);
         setAutoFixed(true);
-        setTimeout(() => setAutoFixed(false), 6000); // hide toast after 6s
+        setTimeout(() => setAutoFixed(false), 6000);
       }
 
       setProgress(100);
@@ -188,18 +179,16 @@ export default function WorkspacePage() {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       setIsLoading(false);
-      setIsLoading(false);
       setProgress(0);
     }
-  }, [code]);
+  }, [code, language, fileName]);
 
   // ── Video Generation ────────────────────────────────────────────────────────
-  
+
   const generateVideo = useCallback(async () => {
     if (!result) return;
     setIsGeneratingVideo(true);
     try {
-      // Keep narration concise to avoid breaking URL parameters
       const narration = result.narration_script.join(' ').substring(0, 150);
       const res = await fetch('http://localhost:8000/generate-video', {
         method: 'POST',
@@ -211,11 +200,12 @@ export default function WorkspacePage() {
       if (data.status === 'success') {
         setVideoUri(data.video_uri);
       } else {
-        throw new Error(data.message || "Failed to generate video");
+        throw new Error(data.message || 'Failed to generate video');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error(err);
-      alert("Veo Error: " + err.message);
+      alert('Veo Error: ' + message);
     } finally {
       setIsGeneratingVideo(false);
     }
@@ -224,16 +214,13 @@ export default function WorkspacePage() {
   // ── Status label ─────────────────────────────────────────────────────────────
 
   const statusLabel = isLoading
-    ? progress < 30
-      ? 'Connecting to API...'
-      : progress < 60
-        ? 'Parsing AST logic...'
-        : progress < 85
-          ? 'Extracting LLM insights...'
-          : 'Finalising results...'
-    : result
-      ? 'Analysis complete ✓'
-      : 'Ready';
+    ? progress < 30 ? 'Connecting to API...'
+      : progress < 60 ? 'Parsing structure...'
+      : progress < 85 ? 'Extracting LLM insights...'
+      : 'Finalising results...'
+    : result ? 'Analysis complete ✓' : 'Ready';
+
+  const currentLangLabel = LANGUAGES.find((l) => l.key === language)?.label ?? language;
 
   return (
     <>
@@ -248,13 +235,9 @@ export default function WorkspacePage() {
           <span className="material-symbols-outlined text-emerald-400 text-lg">auto_fix_high</span>
           <div>
             <p className="text-xs font-bold text-emerald-300">Indentation auto-corrected ✓</p>
-            <p className="text-[10px] text-emerald-500/80">The LLM restored proper Python indentation. Your code has been updated.</p>
+            <p className="text-[10px] text-emerald-500/80">The LLM restored proper indentation. Your code has been updated.</p>
           </div>
-          <button
-            onClick={() => setAutoFixed(false)}
-            className="ml-2 text-emerald-600 hover:text-emerald-300 transition-colors"
-            aria-label="Dismiss"
-          >
+          <button onClick={() => setAutoFixed(false)} className="ml-2 text-emerald-600 hover:text-emerald-300 transition-colors" aria-label="Dismiss">
             <span className="material-symbols-outlined text-base">close</span>
           </button>
         </div>
@@ -273,7 +256,7 @@ export default function WorkspacePage() {
               <div className="w-3.5 h-3.5 rounded-full bg-[#28C840] shadow-inner" />
             </div>
             <div className="flex-1 text-center text-xs font-medium text-zinc-500 tracking-wide select-none">
-              dashboard.codekino — python-analyzer
+              dashboard.codekino — {currentLangLabel.toLowerCase()}-analyzer
             </div>
           </div>
 
@@ -282,6 +265,9 @@ export default function WorkspacePage() {
               ref={leftPaneRef}
               code={code}
               setCode={setCode}
+              language={language}
+              setLanguage={setLanguage}
+              languages={LANGUAGES}
               fileName={fileName}
               isDragging={isDragging}
               isLoading={isLoading}
@@ -295,6 +281,7 @@ export default function WorkspacePage() {
               handleDrop={handleDrop}
               handleFileChange={handleFileChange}
               analyze={analyze}
+              placeholder={getPlaceholder(language)}
             />
 
             <MiddlePane
@@ -307,24 +294,17 @@ export default function WorkspacePage() {
               videoUri={videoUri}
               onGenerateVideo={generateVideo}
               onCodeFixed={setCode}
+              language={language}
             />
 
-            <RightPane
-              ref={rightPaneRef}
-              result={result}
-            />
+            <RightPane ref={rightPaneRef} result={result} />
           </div>
         </main>
       </div>
 
-      {/* Hidden code bridge — lets MiddlePane read current code without extra prop drilling */}
-      <textarea
-        id="__codekino_code__"
-        readOnly
-        value={code}
-        aria-hidden="true"
-        className="sr-only"
-      />
+      {/* Hidden code bridge for MiddlePane */}
+      <textarea id="__codekino_code__" readOnly value={code} aria-hidden="true" className="sr-only" />
+      <input type="hidden" id="__codekino_lang__" value={language} />
 
       <WorkspaceFooter />
     </>
